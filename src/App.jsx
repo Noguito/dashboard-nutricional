@@ -19,6 +19,12 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
+// --- VIP GUARD ---
+const correosPermitidos = [
+  "darkangel.adn@gmail.com",
+  "gpogocruz@gmail.com"
+];
+
 // --- RUTAS DE BASE DE DATOS FAMILIAR ---
 const getDocRefs = (profileId) => {
   return {
@@ -73,10 +79,11 @@ const DIET_OPTIONS = {
     { id: 'D5', name: 'Avena estilo cheesecake + 2 huevos' },
   ],
   frutas: [
-    { id: '', name: 'Sin fruta' },
+    { id: '', name: 'Ninguno' },
     { id: 'F1', name: 'Banana' },
     { id: 'F2', name: 'Manzana' },
     { id: 'F3', name: 'Papaya' },
+    { id: 'F4', name: 'Almendras (20g)' },
   ],
   almuerzos: [
     { id: '', name: 'Ninguno' },
@@ -147,6 +154,7 @@ const MACROS_DB = {
   F1: { kcal: 105, prot: 1, carb: 27, gras: 0, portion: '1 banana', desc: '' },
   F2: { kcal: 95, prot: 0.5, carb: 25, gras: 0, portion: '1 manzana', desc: '' },
   F3: { kcal: 78, prot: 1, carb: 19, gras: 0, portion: '180 g papaya', desc: '' },
+  F4: { kcal: 116, prot: 4, carb: 4, gras: 10.5, portion: '20 g almendras', desc: '' },
   R1: { kcal: 132, prot: 29, carb: 0, gras: 1, portion: '1 lata atún', desc: '' },
   R2: { kcal: 195, prot: 4, carb: 42, gras: 0, portion: '150 g arroz cocido extra', desc: '' },
   R3: { kcal: 144, prot: 13, carb: 1, gras: 10, portion: '2 huevos extra', desc: '' },
@@ -180,6 +188,7 @@ const INGREDIENTS_DB = {
   F1: [{ name: 'Banana', qty: 1, unit: 'un', cat: 'Frutas' }],
   F2: [{ name: 'Manzana', qty: 1, unit: 'un', cat: 'Frutas' }],
   F3: [{ name: 'Papaya', qty: 180, unit: 'g', cat: 'Frutas' }],
+  F4: [{ name: 'Almendras', qty: 20, unit: 'g', cat: 'Extras' }],
   R1: [{ name: 'Atún', qty: 1, unit: 'lata', cat: 'Proteínas' }],
   R2: [{ name: 'Arroz cocido', qty: 150, unit: 'g', cat: 'Carbohidratos' }],
   R3: [{ name: 'Huevo', qty: 2, unit: 'un', cat: 'Proteínas' }],
@@ -200,9 +209,9 @@ const MEALS_ALLOWING_FRUIT = {
 };
 
 const SOMATOTYPE_RANGES = {
-  ectomorfo: { protMin: 1.20, protMax: 1.35, fatMin: 0.20, fatMax: 0.40, refCarb: '40 a 100%', refProt: '12 a 15%' },
-  mesomorfo: { protMin: 1.15, protMax: 1.35, fatMin: 0.20, fatMax: 0.35, refCarb: '40 a 80%', refProt: '10 a 12%' },
-  endomorfo: { protMin: 1.25, protMax: 1.50, fatMin: 0.25, fatMax: 0.40, refCarb: '40 a 70%', refProt: '8 a 10%' }
+  ectomorfo: { protMin: 1.20, protMax: 1.35, fatMin: 0.20, fatMax: 0.40, refCarb: '40% a 100%', refProt: '12% a 15%' },
+  mesomorfo: { protMin: 1.15, protMax: 1.35, fatMin: 0.20, fatMax: 0.35, refCarb: '40% a 80%', refProt: '10% a 12%' },
+  endomorfo: { protMin: 1.25, protMax: 1.50, fatMin: 0.25, fatMax: 0.40, refCarb: '40% a 70%', refProt: '8% a 10%' }
 };
 
 const getRefeedFrequency = (bf) => {
@@ -270,8 +279,18 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) setLoading(false);
+      if (currentUser) {
+        if (correosPermitidos.includes(currentUser.email)) {
+          setUser(currentUser); 
+        } else {
+          signOut(auth);
+          setUser(null);
+          alert("Acceso denegado. Este dashboard es de uso privado para Ángel y Gabriela.");
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -901,6 +920,9 @@ export default function App() {
                           type="number" value={profile.activityLevel} onChange={(e) => handleProfileChange('activityLevel', e.target.value)}
                           className={`w-full text-sm border-slate-300 rounded-md shadow-sm focus:border-${currentProfileId === 'ADN' ? 'blue' : 'purple'}-500 focus:ring-${currentProfileId === 'ADN' ? 'blue' : 'purple'}-500`} step="0.1"
                         />
+                        <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+                          <b>Guía (hrs/sem):</b> 0h=1.2 | 1-2h=1.3 | 3-4h=1.4 | 5-6h=1.5 | 7-9h=1.6 | 10-11h=1.7 | 12-13h=1.8
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -939,6 +961,9 @@ export default function App() {
                             className={`w-24 text-sm border-slate-300 rounded-md shadow-sm bg-yellow-50 focus:border-${currentProfileId === 'ADN' ? 'blue' : 'purple'}-500 focus:ring-${currentProfileId === 'ADN' ? 'blue' : 'purple'}-500`}
                           />
                         </div>
+                        <p className="text-[10px] text-slate-500 mt-1 leading-tight">
+                          <b>Para perder:</b> 0.23kg/sem = 250 kcal | 0.45kg/sem = 500 kcal | 0.68kg/sem = 700 kcal | 0.91kg/sem = 1000 kcal
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -959,6 +984,7 @@ export default function App() {
                           type="number" value={profile.refeedCarbPercent} onChange={(e) => handleProfileChange('refeedCarbPercent', e.target.value)}
                           className={`w-full text-sm border-slate-300 rounded-md shadow-sm focus:border-${currentProfileId === 'ADN' ? 'blue' : 'purple'}-500 focus:ring-${currentProfileId === 'ADN' ? 'blue' : 'purple'}-500`}
                         />
+                        <p className="text-[10px] text-slate-500 mt-1">Recomendado ({profile.somatotype}): <b>{somaRanges.refCarb}</b></p>
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-slate-600 mb-1">Aumento Proteínas (%)</label>
@@ -966,8 +992,10 @@ export default function App() {
                           type="number" value={profile.refeedProtPercent} onChange={(e) => handleProfileChange('refeedProtPercent', e.target.value)}
                           className={`w-full text-sm border-slate-300 rounded-md shadow-sm focus:border-${currentProfileId === 'ADN' ? 'blue' : 'purple'}-500 focus:ring-${currentProfileId === 'ADN' ? 'blue' : 'purple'}-500`}
                         />
+                        <p className="text-[10px] text-slate-500 mt-1">Recomendado ({profile.somatotype}): <b>{somaRanges.refProt}</b></p>
                       </div>
                     </div>
+                    <p className="text-[10px] text-slate-500 mt-3 italic">* No es necesario aumentar grasas en días de realimentación.</p>
                   </div>
                 </div>
 
@@ -988,14 +1016,17 @@ export default function App() {
 
                   <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                     <div className="flex justify-between items-center border-b border-slate-100 pb-2 mb-4">
-                      <h3 className="font-bold text-slate-800">Macros</h3>
+                      <h3 className="font-bold text-slate-800">Macros (Días Normales)</h3>
                       <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-1 rounded">Objetivo: {targetKcal} kcal</span>
                     </div>
 
                     <div className="space-y-4">
                       <div className={`p-3 rounded-lg border ${currentProfileId === 'ADN' ? 'bg-blue-50/50 border-blue-100' : 'bg-purple-50/50 border-purple-100'}`}>
                         <div className="flex justify-between items-center mb-2">
-                          <label className={`text-sm font-bold ${currentProfileId === 'ADN' ? 'text-blue-800' : 'text-purple-800'}`}>Proteína (Multiplicador)</label>
+                          <label className={`text-sm font-bold ${currentProfileId === 'ADN' ? 'text-blue-800' : 'text-purple-800'}`}>
+                            Proteína (Multiplicador)
+                            <span className="block text-[10px] font-normal text-blue-600/70 mt-0.5">Rango recomendado: {somaRanges.protMin} - {somaRanges.protMax} gr/lb</span>
+                          </label>
                         </div>
                         <div className="flex items-center space-x-4">
                           <input 
@@ -1013,7 +1044,10 @@ export default function App() {
 
                       <div className={`p-3 rounded-lg border ${currentProfileId === 'ADN' ? 'bg-indigo-50/50 border-indigo-100' : 'bg-fuchsia-50/50 border-fuchsia-100'}`}>
                         <div className="flex justify-between items-center mb-2">
-                          <label className={`text-sm font-bold ${currentProfileId === 'ADN' ? 'text-indigo-800' : 'text-fuchsia-800'}`}>Grasa (Multiplicador)</label>
+                          <label className={`text-sm font-bold ${currentProfileId === 'ADN' ? 'text-indigo-800' : 'text-fuchsia-800'}`}>
+                            Grasa (Multiplicador)
+                            <span className="block text-[10px] font-normal text-indigo-600/70 mt-0.5">Rango recomendado: {somaRanges.fatMin} - {somaRanges.fatMax} gr/lb</span>
+                          </label>
                         </div>
                         <div className="flex items-center space-x-4">
                           <input 
@@ -1041,6 +1075,32 @@ export default function App() {
                         </div>
                       </div>
                     </div>
+
+                    {/* SECCIÓN DE MACROS PARA REALIMENTACIÓN */}
+                    <div className="mt-6 pt-6 border-t border-slate-200">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-slate-800">Macros Día de Realimentación</h3>
+                        <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded">Objetivo: {Math.round(refeedTotalKcal)} kcal</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 text-center shadow-sm">
+                          <div className="text-xs font-bold text-blue-800 mb-1">Proteína</div>
+                          <div className="text-lg font-bold font-mono text-blue-700">{refeedProtTotalG}g</div>
+                          <div className="text-[10px] text-blue-500">({refeedProtTotalG * 4} kcal)</div>
+                        </div>
+                        <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-center shadow-sm">
+                          <div className="text-xs font-bold text-emerald-800 mb-1">Carbs</div>
+                          <div className="text-lg font-bold font-mono text-emerald-700">{refeedCarbTotalG}g</div>
+                          <div className="text-[10px] text-emerald-500">({refeedCarbTotalG * 4} kcal)</div>
+                        </div>
+                        <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-100 text-center shadow-sm">
+                          <div className="text-xs font-bold text-indigo-800 mb-1">Grasa</div>
+                          <div className="text-lg font-bold font-mono text-indigo-700">{dailyFatG}g</div>
+                          <div className="text-[10px] text-indigo-500">({dailyFatKcal} kcal)</div>
+                        </div>
+                      </div>
+                    </div>
+
                   </div>
                 </div>
               </div>
@@ -1167,7 +1227,7 @@ export default function App() {
                             disabled={!allowFruitBreakfast}
                             className={`block w-full text-sm rounded-md shadow-sm transition-colors ${focusRing} ${!allowFruitBreakfast ? 'bg-slate-100 text-slate-400 border-transparent cursor-not-allowed opacity-60' : 'bg-orange-50/50 border-slate-200'}`}
                           >
-                            {!allowFruitBreakfast ? <option value="">- No aplica -</option> : DIET_OPTIONS.frutas.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
+                            {!allowFruitBreakfast ? <option value="">- No aplica -</option> : DIET_OPTIONS.frutas.map(opt => <option key={opt.id} value={opt.id}>{opt.id === '' ? 'Ninguno' : '+ ' + opt.name}</option>)}
                           </select>
                         </td>
                         <td className="px-4 py-2">
@@ -1182,7 +1242,7 @@ export default function App() {
                             </select>
                             {allowFruitSnack && (
                               <select value={plan[day]?.FM || ''} onChange={(e) => handleSelectChange(day, 'FM', e.target.value)} className={`block w-full text-xs border-slate-200 rounded-md shadow-sm bg-orange-50/50 transition-all ${focusRing}`}>
-                                {DIET_OPTIONS.frutas.map(opt => <option key={opt.id} value={opt.id}>{opt.id === '' ? 'Sin fruta' : '+ ' + opt.name}</option>)}
+                                {DIET_OPTIONS.frutas.map(opt => <option key={opt.id} value={opt.id}>{opt.id === '' ? 'Ninguno' : '+ ' + opt.name}</option>)}
                               </select>
                             )}
                           </div>
